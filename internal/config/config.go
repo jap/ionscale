@@ -214,6 +214,7 @@ type AuthProvider struct {
 
 type DNS struct {
 	MagicDNSSuffix string      `json:"magic_dns_suffix"`
+	ProviderDir    string      `json:"provider_dir,omitempty"`
 	Provider       DNSProvider `json:"provider,omitempty"`
 }
 

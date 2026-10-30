@@ -4,6 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"slices"
+	"strings"
+	"time"
+
 	"github.com/jsiebens/ionscale/internal/config"
 	"github.com/libdns/azure"
 	"github.com/libdns/cloudflare"
@@ -12,8 +19,6 @@ import (
 	"github.com/libdns/libdns"
 	"github.com/libdns/route53"
 	"go.uber.org/zap"
-	"strings"
-	"time"
 )
 
 var factories = map[string]func() libdns.RecordSetter{
@@ -42,16 +47,65 @@ func NewProvider(config config.DNS) (Provider, error) {
 		return nil, fmt.Errorf("invalid dns provider configuration, only one of name or plugin_path should be set")
 	}
 
-	if !strings.HasSuffix(config.MagicDNSSuffix, p.Zone) {
+	if !zoneMatchesSuffix(config.MagicDNSSuffix, p.Zone) {
 		return nil, fmt.Errorf("invalid MagicDNS suffix [%s], not part of zone [%s]", config.MagicDNSSuffix, p.Zone)
 	}
 
-	factory, ok := factories[p.Name]
-	if ok {
+	if p.PluginPath != "" {
+		return newPluginManager(p.PluginPath, fqdn(p.Zone), p.Configuration)
+	}
+
+	if factory, ok := factories[p.Name]; ok {
 		return newProvider(p.Zone, p.Configuration, factory)
 	}
 
-	return newPluginManager(p.PluginPath, fqdn(p.Zone), p.Configuration)
+	// Not compiled in: look for an out-of-process plugin in provider_dir.
+	if pluginPath, err := resolvePluginPath(config.ProviderDir, p.Name); err != nil {
+		return nil, err
+	} else {
+		return newPluginManager(pluginPath, fqdn(p.Zone), p.Configuration)
+	}
+}
+
+// zoneMatchesSuffix reports whether suffix is the zone or lives inside it.
+// strings.HasSuffix alone accepts "notexample.com" for zone "example.com".
+func zoneMatchesSuffix(suffix, zone string) bool {
+	s := strings.ToLower(strings.TrimSuffix(suffix, "."))
+	z := strings.ToLower(strings.TrimSuffix(zone, "."))
+	return s == z || strings.HasSuffix(s, "."+z)
+}
+
+// resolvePluginPath maps a provider name to <dir>/ionscale-<name>-dns, the
+// naming convention of the ionscale/*-dns plugin repos.
+func resolvePluginPath(dir, name string) (string, error) {
+	builtins := make([]string, 0, len(factories))
+	for k := range factories {
+		builtins = append(builtins, k)
+	}
+	slices.Sort(builtins)
+
+	if dir == "" {
+		return "", fmt.Errorf("unknown dns provider %q (built-in providers: %s; to use an external plugin set dns.provider.plugin_path or dns.provider_dir)", name, strings.Join(builtins, ", "))
+	}
+
+	if name == "" || strings.ContainsAny(name, "/\\") || name == "." || name == ".." {
+		return "", fmt.Errorf("invalid dns provider name %q", name)
+	}
+
+	candidate := filepath.Join(dir, "ionscale-"+name+"-dns")
+	if runtime.GOOS == "windows" {
+		candidate += ".exe"
+	}
+
+	info, err := os.Stat(candidate)
+	if err != nil {
+		return "", fmt.Errorf("dns provider %q not found: no plugin at %s (built-in providers: %s)", name, candidate, strings.Join(builtins, ", "))
+	}
+	if info.IsDir() || info.Mode()&0o111 == 0 {
+		return "", fmt.Errorf("dns plugin %s is not executable", candidate)
+	}
+
+	return candidate, nil
 }
 
 func newProvider(zone string, values json.RawMessage, factory func() libdns.RecordSetter) (Provider, error) {
