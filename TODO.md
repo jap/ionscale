@@ -27,3 +27,11 @@ Unverified claims that must be observed before being trusted:
 - [ ] ionscale polls public visibility with **the server's own resolver** (`net.LookupTXT`); a split-horizon resolver on `is.bmw12.nl` would make every issuance fail after 5 minutes. Not yet checked on that host: `resolvectl status`, `dig +short TXT _acme-challenge.test.bmw12.nl`.
 - [ ] No tag on `jap/ionscale-transip-dns` → no release assets; arm64 binary was copied by hand from `/tmp/pluginbuild/`. Blocked on the licence decision.
 - [ ] Phase 1's existing integration suite (`tests/`, dockertest) has not been run against the fork branch yet — needs Docker and an image build.
+- [ ] `tailscale serve status` is NOT a valid check for the HA add-on path: upstream only reports background config
+      (`tailscale.com/cmd/tailscale/cli/serve_legacy.go:599-601` TODO), the add-on runs serve with `--bg=false`
+      so the config lives in `Foreground[sessionID]` (`serve_v2.go:288`) and dies with the CLI process
+      (`ipn/ipnlocal/local.go:2959`). Use `serve status --json`. Needs `serve status --json` output from the HA node
+      plus the result of `tailscale cert ha.<tailnet>.ion.bmw12.nl` to pin the cert failure.
+- [ ] Rename drift: node renamed `homeassistant` -> `ha` with `ionscale machine set-name`, which pins the name
+      server-side (`service/machine.go:216-223` sets `UseOSHostname=false`). Decide whether to use
+      `--use-os-hostname` instead. Orphan `_acme-challenge.homeassistant...` TXT records remain in `bmw12.nl`.
