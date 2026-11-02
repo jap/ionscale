@@ -21,6 +21,7 @@ Unverified claims that must be observed before being trusted:
 - [ ] `_acme-challenge` TXT records are never deleted today (no clean-up signal in `tailcfg.SetDNSRequest`) and `internal/handlers/dns.go` returns HTTP 200 even when the 5-minute public-DNS poll times out. Consequences for stale records / LE rate limits not measured.
 
 ## Open from 2026-11-02 (cert issuance verified on `pi`)
+  (RESOLVED 2026-11-02: cert issued on `ha`, chain ionscale→plugin→transip→LE works; the earlier empty `serve status` was the foreground-config display gap)
 - [ ] HA add-on still refuses HTTPS: waiting on `tailscale status --self --peers=false --json | jq '.Self.CapMap'` output from the HA node and the add-on log around `share-homeassistant`. Gate is `CapMap.https` ← `ionscale tailnets set-dns --https-certs=true`; needs an add-on restart to pick up the new netmap.
 - [ ] Stale `_acme-challenge.*` TXT records accumulate in `bmw12.nl`: nothing deletes them (ionscale has no cleanup; Phase 4 `cleanup_after`). Sweep in TransIP CP after the HA cert works.
 - [ ] ionscale's `/machine/set-dns` returns 200 after a 5-minute poll timeout even when the record never resolved publicly (`internal/handlers/dns.go:58-63`): this turned a config question into a 5-minute stall with no error. Phase 4 makes it opt-in visible (`verify_fail_open`).
