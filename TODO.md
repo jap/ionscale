@@ -22,17 +22,22 @@ Unverified claims that must be observed before being trusted:
 
 ## Open from 2026-11-02 (cert issuance verified on `pi`)
   (RESOLVED 2026-11-02: cert issued on `ha`, chain ionscale→plugin→transip→LE works; the earlier empty `serve status` was the foreground-config display gap)
-- [ ] HA add-on still refuses HTTPS: waiting on `tailscale status --self --peers=false --json | jq '.Self.CapMap'` output from the HA node and the add-on log around `share-homeassistant`. Gate is `CapMap.https` ← `ionscale tailnets set-dns --https-certs=true`; needs an add-on restart to pick up the new netmap.
+- [x] RESOLVED 2026-11-02: the crashloop was NOT ionscale — `share-homeassistant/run` probes HA with
+      `curl -H "X-Forwarded-For: 127.0.0.1" http://127.0.0.1:8123/` and requires 200; HA's
+      `forwarded_middleware` raises `HTTPBadRequest` (400 "400: Bad Request") unless HA itself trusts the
+      proxy. Fix: `http: {use_x_forwarded_for: true, trusted_proxies: [127.0.0.1]}` in
+      configuration.yaml (or Settings > System > Network > HTTP server > Reverse proxy) then **restart
+      Home Assistant Core** (an add-on restart alone does not reload it). Probe returns 200 => serve works.
+      Browser 400 and add-on FATAL are the same cause; serve/cert/port/bind were all fine.
 - [ ] Stale `_acme-challenge.*` TXT records accumulate in `bmw12.nl`: nothing deletes them (ionscale has no cleanup; Phase 4 `cleanup_after`). Sweep in TransIP CP after the HA cert works.
 - [ ] ionscale's `/machine/set-dns` returns 200 after a 5-minute poll timeout even when the record never resolved publicly (`internal/handlers/dns.go:58-63`): this turned a config question into a 5-minute stall with no error. Phase 4 makes it opt-in visible (`verify_fail_open`).
 - [ ] ionscale polls public visibility with **the server's own resolver** (`net.LookupTXT`); a split-horizon resolver on `is.bmw12.nl` would make every issuance fail after 5 minutes. Not yet checked on that host: `resolvectl status`, `dig +short TXT _acme-challenge.test.bmw12.nl`.
 - [ ] No tag on `jap/ionscale-transip-dns` → no release assets; arm64 binary was copied by hand from `/tmp/pluginbuild/`. Blocked on the licence decision.
 - [ ] Phase 1's existing integration suite (`tests/`, dockertest) has not been run against the fork branch yet — needs Docker and an image build.
-- [ ] `tailscale serve status` is NOT a valid check for the HA add-on path: upstream only reports background config
-      (`tailscale.com/cmd/tailscale/cli/serve_legacy.go:599-601` TODO), the add-on runs serve with `--bg=false`
-      so the config lives in `Foreground[sessionID]` (`serve_v2.go:288`) and dies with the CLI process
-      (`ipn/ipnlocal/local.go:2959`). Use `serve status --json`. Needs `serve status --json` output from the HA node
-      plus the result of `tailscale cert ha.<tailnet>.ion.bmw12.nl` to pin the cert failure.
+- [x] RESOLVED 2026-11-02: manual `tailscale serve --https=443 --set-path=/ http://127.0.0.1:8123` works and
+      uses the freshly issued cert. `tailscale serve status` is NOT a valid check here: upstream only reports
+      background config (`serve_legacy.go:599-601` TODO), the add-on runs `--bg=false` so config lives in
+      `Foreground[sessionID]` (`serve_v2.go:288`). Use `serve status --json`. Not the failure — see above.
 - [ ] Rename drift: node renamed `homeassistant` -> `ha` with `ionscale machine set-name`, which pins the name
       server-side (`service/machine.go:216-223` sets `UseOSHostname=false`). Decide whether to use
       `--use-os-hostname` instead. Orphan `_acme-challenge.homeassistant...` TXT records remain in `bmw12.nl`.
