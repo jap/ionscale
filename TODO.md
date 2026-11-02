@@ -38,6 +38,6 @@ Unverified claims that must be observed before being trusted:
       uses the freshly issued cert. `tailscale serve status` is NOT a valid check here: upstream only reports
       background config (`serve_legacy.go:599-601` TODO), the add-on runs `--bg=false` so config lives in
       `Foreground[sessionID]` (`serve_v2.go:288`). Use `serve status --json`. Not the failure — see above.
-- [ ] Rename drift: node renamed `homeassistant` -> `ha` with `ionscale machine set-name`, which pins the name
-      server-side (`service/machine.go:216-223` sets `UseOSHostname=false`). Decide whether to use
-      `--use-os-hostname` instead. Orphan `_acme-challenge.homeassistant...` TXT records remain in `bmw12.nl`.
+- [x] Rename drift: node renamed `homeassistant` -> `ha` with `ionscale machine set-name`, which pins the name
+      server-side (`service/machine.go:216-223` sets `UseOSHostname=false`). **Decision 2026-11-02: stays
+      ionscale-pinned**, no `--use-os-hostname`. Orphan `_acme-challenge.homeassistant...` TXT swept from `bmw12.nl`.

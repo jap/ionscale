@@ -68,10 +68,10 @@
       http://127.0.0.1:8123/` and exits 1 (tearing down the container) unless HA answers 200. HA
       `forwarded_middleware` raises 400 for an untrusted proxy. Fix: `http: {use_x_forwarded_for: true,
       trusted_proxies: [127.0.0.1]}` in HA configuration.yaml + **restart Home Assistant Core**. Verified working.
-- [ ] Document the gate + the re-poll requirement (`docker restart addons_tailscale` after
+- [x] Document the gate + the re-poll requirement (`docker restart addons_tailscale` after
       `ionscale tailnets set-dns --https-certs=true`) in the fork's DNS docs
-- [ ] Sweep the orphan `_acme-challenge.ha.bmw12.ion.bmw12.nl` TXT in the TransIP CP (still live; ionscale only
-      ever `SetRecords` (`internal/dns/plugin.go:116`), never deletes, so exactly one orphan per name remains)
+      (`mkdocs/docs/configuration/dns-providers.md`)
+- [x] Sweep the orphan `_acme-challenge.ha.bmw12.ion.bmw12.nl` TXT in the TransIP CP (done 2026-11-02)
 - [ ] Commit: `git commit -m "docs: HA add-on HTTPS capability gate"`
 
 ## Phase 1 — Fork + additive host ergonomics (no config breaks)
