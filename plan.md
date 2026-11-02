@@ -45,13 +45,28 @@
 
 - [x] New repo `jap/ionscale-transip-dns`, copied from the `ionscale-cloudflare-dns` template: `main.go` = `plugin.Serve(&transip.Provider{})` against `jsiebens/libdns-plugin v1.0.0` + `libdns/transip v1.1.2`
   - [x] pointer to `Serve`; `go mod tidy`; verify `go version -m` on the binary lists `transip v1.1.2` + `libdns v1.1.1`
-  - [ ] `.goreleaser.yaml` → `project_name: ionscale-transip-dns`, images `ghcr.io/jap/ionscale-transip-dns`, cosign
+  - [x] `.goreleaser.yaml` → `project_name: ionscale-transip-dns`, images `ghcr.io/jap/ionscale-transip-dns`, cosign (written; **no tag pushed yet**, so no assets exist)
 - [x] Offline regression test: in-repo fake provider plugin (own module, ABI v1) + host-side go-plugin client asserting `SetRecords` gets `RR{Type:"TXT", Name:"_acme-challenge.<host>", TTL:1m}` and that `Configure` populated the struct — this test doubles as the ABI interop guard
-- [ ] Deploy to the self-hosted ionscale at `is.bmw12.nl`: mount binary (or base the ionscale image on `ghcr.io/jap/ionscale-transip-dns` copy stage), `dns.provider: {plugin_path: /data/ionscale/plugins/ionscale-transip-dns, zone: bmw12.nl, config: {login, private_key, read_only: false, not_global_key, token_storage}}`
-- [ ] TransIP preconditions documented + checked: API key from TransIP CP with `read_only:false` and TXT write rights, IP allowlist via `not_global_key`, tailnet base domain `bmw12.ion.bmw12.nl` must be **publicly authoritative** in TransIP for LE to validate, `expire` min 60s
+- [x] Deployed to the self-hosted ionscale at `is.bmw12.nl`: mount binary (or base the ionscale image on `ghcr.io/jap/ionscale-transip-dns` copy stage), `dns.provider: {plugin_path: /data/ionscale/plugins/ionscale-transip-dns, zone: bmw12.nl, config: {login, private_key, read_only: false, not_global_key, token_storage}}`
+- [x] TransIP preconditions documented + checked: API key from TransIP CP with `read_only:false` and TXT write rights, IP allowlist via `not_global_key`, tailnet base domain `bmw12.ion.bmw12.nl` must be **publicly authoritative** in TransIP for LE to validate, `expire` min 60s
 - [x] Verify plugin transport is a Unix socket (go-plugin `AutoSecure`/`SecureConfig` defaults) — `Configure` carries the TransIP credentials
-- [ ] Acceptance: `tailscale cert <node>.bmw12.ion.bmw12.nl` issues; TXT visible in TransIP CP during issuance
+- [x] Acceptance **on host `pi`**: `tailscale cert` issues, `_acme-challenge` TXT observed at TransIP during issuance. Open: the Home Assistant add-on path (see Phase 0.5)
 - [ ] Commit (new repo): `git commit -m "Phase 0: ionscale-transip-dns libdns plugin"`
+
+## Phase 0.5 — Home Assistant add-on HTTPS gate (config + docs, no core change)
+
+- [x] Root cause pinned: `share-homeassistant/run` aborts unless `Self.CapMap` has `https`
+      (`jq -rce '.Self.CapMap | has("https")'`); ionscale sets `CapMap[https]` only when
+      `tailnet.DNSConfig.HttpsCertsEnabled` (`internal/mapping/mapping.go:192`), and only into
+      `CapMap` (not `Capabilities`) for `capVer >= 74` (`:207`)
+- [x] Key insight: `tailscale cert` succeeding on `pi` does **not** prove that flag is set —
+      `internal/handlers/dns.go` validates nothing about `HttpsCertsEnabled`
+- [ ] Verify on the HA node: `tailscale status --self --peers=false --json | jq '.Self.CapMap'`
+      shows `https`, and `tailscale debug netmap` shows `CertDomains` non-empty
+- [ ] Confirm `share_homeassistant: serve` (not `funnel`; ionscale hard-refuses funnel)
+- [ ] Document the gate + the re-poll requirement (`docker restart addons_tailscale` after
+      `ionscale tailnets set-dns --https-certs=true`) in the fork's DNS docs
+- [ ] Commit: `git commit -m "docs: HA add-on HTTPS capability gate"`
 
 ## Phase 1 — Fork + additive host ergonomics (no config breaks)
 
@@ -61,7 +76,7 @@
   - [x] executable-bit check with a clear error
 - [x] Replace the `exec.Command("")` failure with `unknown dns provider %q (built-ins: …; plugin_dir: …)`
 - [x] Fix `strings.HasSuffix(MagicDNSSuffix, Zone)` to a label-boundary check (`notexample.com` must not match zone `example.com`); only rejects configs that already failed at the API
-- [ ] Keep `libdns v0.2.3` + `libdns-plugin v0.1.0` pins, with a comment stating the wire contract is `RR`-flat and compatible with plugin ABI v1
+- [x] Pins kept with `// pinned for wire compat` comments in `go.mod` (libdns v0.2.3 + libdns-plugin v0.1.0)
 - [ ] `go build ./... && go vet ./...` + existing `tests/` integration suite green
 - [ ] Commit: `git commit -m "Phase 1: provider_dir name resolution, provider lookup errors, zone validation"`
 

@@ -19,3 +19,11 @@ Unverified claims that must be observed before being trusted:
 - [x] RESOLVED 2026-10-30: transport is a unix socket (`network=unix`, `dispensed=*plugin.GRPCClient`); `ProviderPlugin` embeds `NetRPCUnsupportedPlugin`, so gRPC only.
 - [ ] TransIP live zone test not run. Token storage is file-backed at `os.TempDir()/transip`; behaviour under multiple ionscale replicas unverified.
 - [ ] `_acme-challenge` TXT records are never deleted today (no clean-up signal in `tailcfg.SetDNSRequest`) and `internal/handlers/dns.go` returns HTTP 200 even when the 5-minute public-DNS poll times out. Consequences for stale records / LE rate limits not measured.
+
+## Open from 2026-11-02 (cert issuance verified on `pi`)
+- [ ] HA add-on still refuses HTTPS: waiting on `tailscale status --self --peers=false --json | jq '.Self.CapMap'` output from the HA node and the add-on log around `share-homeassistant`. Gate is `CapMap.https` ← `ionscale tailnets set-dns --https-certs=true`; needs an add-on restart to pick up the new netmap.
+- [ ] Stale `_acme-challenge.*` TXT records accumulate in `bmw12.nl`: nothing deletes them (ionscale has no cleanup; Phase 4 `cleanup_after`). Sweep in TransIP CP after the HA cert works.
+- [ ] ionscale's `/machine/set-dns` returns 200 after a 5-minute poll timeout even when the record never resolved publicly (`internal/handlers/dns.go:58-63`): this turned a config question into a 5-minute stall with no error. Phase 4 makes it opt-in visible (`verify_fail_open`).
+- [ ] ionscale polls public visibility with **the server's own resolver** (`net.LookupTXT`); a split-horizon resolver on `is.bmw12.nl` would make every issuance fail after 5 minutes. Not yet checked on that host: `resolvectl status`, `dig +short TXT _acme-challenge.test.bmw12.nl`.
+- [ ] No tag on `jap/ionscale-transip-dns` → no release assets; arm64 binary was copied by hand from `/tmp/pluginbuild/`. Blocked on the licence decision.
+- [ ] Phase 1's existing integration suite (`tests/`, dockertest) has not been run against the fork branch yet — needs Docker and an image build.

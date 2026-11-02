@@ -20,7 +20,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-plugin v1.6.3
 	github.com/jsiebens/go-edit v0.1.0
-	github.com/jsiebens/libdns-plugin v0.1.0
+	github.com/jsiebens/libdns-plugin v0.1.0 // pinned for wire compat: releases ship plugins built on this ABI; the gRPC contract (proto + handshake) is identical to v1.0.0, see tests/pluginabi
 	github.com/jsiebens/mockoidc v0.1.0-rc2
 	github.com/klauspost/compress v1.18.0
 	github.com/labstack/echo-contrib v0.17.3
@@ -29,7 +29,7 @@ require (
 	github.com/libdns/cloudflare v0.1.1
 	github.com/libdns/digitalocean v0.0.0-20230728223659-4f9064657aea
 	github.com/libdns/googleclouddns v1.1.0
-	github.com/libdns/libdns v0.2.3
+	github.com/libdns/libdns v0.2.3 // pinned with libdns-plugin v0.1.0: the wire stays RR-flat (name/type/data/ttl), so plugins built on libdns v1 dispense fine
 	github.com/libdns/route53 v1.3.3
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/pointerstructure v1.2.1
